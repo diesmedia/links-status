@@ -18,7 +18,7 @@ export class LinksStatus {
     console.log(`Found ${links.length} links. Checking statuses...`);
 
     const startTime = Date.now();
-    const results = await this.testLinks(links);
+    const results = await this.testLinksConcurrently(links);
     const endTime = Date.now();
 
     this.printResults(results);
@@ -37,20 +37,21 @@ export class LinksStatus {
     return links;
   }
 
-  private async testLinks(links: string[]): Promise<{ url: string, status: number }[]> {
+  private async testLinksConcurrently(links: string[]): Promise<{ url: string, status: number }[]> {
     const results: { url: string, status: number }[] = [];
 
-    for (let i = 0; i < links.length; i++) {
-      const link = links[i];
+    const linkPromises = links.map(async (link, index) => {
       try {
-        this.updateProgress(i + 1, links.length);
+        this.updateProgress(index + 1, links.length);
         const { stdout } = await execPromise(`curl -o /dev/null -s -w "%{http_code}" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" ${link}`);
         const status = parseInt(stdout.trim(), 10);
         results.push({ url: link, status });
       } catch (error) {
         results.push({ url: link, status: 0 }); // Could not resolve domain or another error
       }
-    }
+    });
+
+    await Promise.all(linkPromises);
 
     return results;
   }

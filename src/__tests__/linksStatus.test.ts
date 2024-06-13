@@ -40,7 +40,7 @@ describe('LinksStatus', () => {
     mockExec.mockImplementation((command, callback) => callback(null, { stdout: '200' }));
 
     const checker = new LinksStatus('dummyPath');
-    const results = await checker['testLinks'](links);
+    const results = await checker['testLinksConcurrently'](links);
 
     expect(results).toEqual([
       { url: 'http://example.com', status: 200 },
@@ -54,7 +54,7 @@ describe('LinksStatus', () => {
     mockExec.mockImplementation((command, callback) => callback(new Error('Network error')));
 
     const checker = new LinksStatus('dummyPath');
-    const results = await checker['testLinks'](links);
+    const results = await checker['testLinksConcurrently'](links);
 
     expect(results).toEqual([
       { url: 'http://example.com', status: 0 },

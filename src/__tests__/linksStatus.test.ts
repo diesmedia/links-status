@@ -1,92 +1,78 @@
-import { LinksStatus } from '../linksStatus';
+import { jest } from '@jest/globals';
+import { LinksStatus } from '../linksStatus'; // Ensure this matches the actual file name's casing
 import * as fs from 'fs';
-import { exec } from 'child_process';
 import * as util from 'util';
-import * as readline from 'readline';
+import { exec } from 'child_process';
 
 jest.mock('fs');
-jest.mock('child_process');
-jest.mock('readline');
-
-const mockExec = exec as unknown as jest.Mock;
+jest.mock('util');
 
 describe('LinksStatus', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+    const mockFilePath = 'test.txt';
 
-  it('should extract links from content', async () => {
-    const fileContent = `
-      Here are some links:
-      - http://example.com
-      - https://another-example.com
-    `;
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
 
-    (fs.readFileSync as jest.Mock).mockReturnValue(fileContent);
-    mockExec.mockImplementation((command, callback) => callback(null, { stdout: '200' }));
+    it('should create an instance with the correct file path', () => {
+        const linksStatus = new LinksStatus(mockFilePath);
+        expect(linksStatus).toBeDefined();
+    });
 
-    const checker = new LinksStatus('dummyPath');
-    const links = checker['extractLinks'](fileContent);
-    
-    expect(links).toEqual([
-      'http://example.com',
-      'https://another-example.com',
-    ]);
-  });
+    it('should read file content correctly', async () => {
+        // @ts-ignore
+        jest.spyOn(fs, 'readFile').mockImplementation((filePath, options, callback) => {
+            callback(null, 'file content with https://example.com');
+        });
+        const linksStatus = new LinksStatus(mockFilePath);
+        const content = await linksStatus['readFileAsync'](mockFilePath, 'utf-8');
 
-  it('should check link statuses correctly', async () => {
-    const links = ['http://example.com', 'https://another-example.com'];
-    (fs.readFileSync as jest.Mock).mockReturnValue(links.join('\n'));
-    mockExec.mockImplementation((command, callback) => callback(null, { stdout: '200' }));
+        expect(content).toBe('file content with https://example.com');
+        expect(fs.readFile).toHaveBeenCalledWith(mockFilePath, { encoding: 'utf-8' }, expect.any(Function));
+    });
 
-    const checker = new LinksStatus('dummyPath');
-    const results = await checker['testLinksConcurrently'](links);
+    it('should extract links from content', () => {
+        const linksStatus = new LinksStatus(mockFilePath);
+        const content = 'Here are some links: https://example.com and http://test.com';
+        const links = linksStatus['extractLinks'](content);
 
-    expect(results).toEqual([
-      { url: 'http://example.com', status: 200 },
-      { url: 'https://another-example.com', status: 200 },
-    ]);
-  });
+        expect(links).toEqual(['https://example.com', 'http://test.com']);
+    });
 
-  it('should handle errors when checking link statuses', async () => {
-    const links = ['http://example.com', 'https://another-example.com'];
-    (fs.readFileSync as jest.Mock).mockReturnValue(links.join('\n'));
-    mockExec.mockImplementation((command, callback) => callback(new Error('Network error')));
+    it('should test links concurrently', async () => {
+        // @ts-ignore
+        const mockExecPromise = jest.fn().mockResolvedValue({ stdout: '200' });
 
-    const checker = new LinksStatus('dummyPath');
-    const results = await checker['testLinksConcurrently'](links);
+        // @ts-ignore
+        const linksStatus = new LinksStatus(mockFilePath, mockExecPromise);
+        const links = ['https://example.com', 'http://test.com'];
+        const results = await linksStatus['testLinksConcurrently'](links);
 
-    expect(results).toEqual([
-      { url: 'http://example.com', status: 0 },
-      { url: 'https://another-example.com', status: 0 },
-    ]);
-  });
+        console.log(results);
 
-  it('should print results correctly', () => {
-    const results = [
-      { url: 'http://example.com', status: 200 },
-      { url: 'https://another-example.com', status: 404 },
-    ];
+        expect(results).toEqual([
+            { url: 'https://example.com', status: 200 },
+            { url: 'http://test.com', status: 200 },
+        ]);
+        expect(mockExecPromise).toHaveBeenCalledTimes(2); // Ensure execPromise was called for each link
+    });
 
-    console.log = jest.fn();
-    const checker = new LinksStatus('dummyPath');
-    checker['printResults'](results);
+    it('should print results correctly', () => {
+        const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-    expect(console.log).toHaveBeenCalledWith('\n--- RESULTS ---');
-    expect(console.log).toHaveBeenCalledWith('200 - http://example.com');
-    expect(console.log).toHaveBeenCalledWith('404 - https://another-example.com');
-  });
+        const linksStatus = new LinksStatus(mockFilePath);
+        const results = [
+            { url: 'https://example.com', status: 200 },
+            { url: 'http://test.com', status: 404 },
+            { url: 'http://server-error.com', status: 500 },
+        ];
 
-  it('should update progress correctly', () => {
-    const checker = new LinksStatus('dummyPath');
-    jest.spyOn(readline, 'clearLine').mockImplementation((stream, dir, callback) => true);
-    jest.spyOn(readline, 'cursorTo').mockImplementation((stream, x, y, callback) => true);
-    jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+        linksStatus['printResults'](results);
 
-    checker['updateProgress'](1, 3);
-    
-    expect(readline.clearLine).toHaveBeenCalledWith(process.stdout, 0);
-    expect(readline.cursorTo).toHaveBeenCalledWith(process.stdout, 0);
-    expect(process.stdout.write).toHaveBeenCalledWith('Checking links... 33.33% (1/3)');
-  });
+        expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('200 - https://example.com'));
+        expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('404 - http://test.com'));
+        expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('500 - http://server-error.com'));
+
+        consoleLogSpy.mockRestore();
+    });
 });

@@ -1,4 +1,4 @@
-import { LinksStatus } from './linksStatus';
+import { LinksStatus } from './linksStatus.js';
 
 const filePath = process.argv[2];
 
@@ -8,6 +8,10 @@ if (!filePath) {
 }
 
 const statusChecker = new LinksStatus(filePath);
-statusChecker.checkLinks().catch(error => {
-  console.error('Error checking links:', error);
+statusChecker.checkLinks().catch((error: unknown) => {
+  if (error instanceof Error) {
+    console.error('Error checking links:', error.message);
+  } else {
+    console.error('Unexpected error', error);
+  }
 });

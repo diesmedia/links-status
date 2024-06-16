@@ -1,6 +1,6 @@
 # Links Status
 
-**Links status** is a lightweight and efficient Node.js module written in TypeScript that parses files to find all http and https links, checks their statuses, and outputs the HTTP response codes. This tool is perfect for validating links in various file types, such as HTML, Markdown, JavaScript, and TypeScript, ensuring all your links are working correctly.
+**Links Status** is a lightweight and efficient Node.js module written in TypeScript that parses files to find all http and https links, checks their statuses, and outputs the HTTP response codes. This tool is perfect for validating links in various file types, such as HTML, Markdown, JavaScript, and TypeScript, ensuring all your links are working correctly.
 
 ## Features
 

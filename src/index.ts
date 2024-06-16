@@ -1,4 +1,4 @@
-import { LinksStatus } from './linksStatus.js';
+import {LinksStatus} from './linksStatus.js';
 
 const filePath = process.argv[2];
 
